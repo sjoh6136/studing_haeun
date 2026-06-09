@@ -14,13 +14,24 @@ const state = {
     sessionHistory: [],   // list of session records: { time: String, duration: Number, tree: String/null }
     plantedTrees: [],     // array of grown tree emojis
 
-    // Audio Files (Stable, high quality Soundjay mp3 files)
+    // Audio Files (Local mp3 assets)
     sounds: {
-        rain: new Audio('https://www.soundjay.com/nature/sounds/rain-07.mp3'),
-        fireplace: new Audio('https://www.soundjay.com/nature/sounds/fire-1.mp3'),
-        cafe: new Audio('https://www.soundjay.com/misc/sounds/restaurant-chatter-1.mp3'),
-        forest: new Audio('https://www.soundjay.com/nature/sounds/forest-wind-1.mp3')
+        rain: new Audio('./assets/sounds/rain.mp3'),
+        fireplace: new Audio('./assets/sounds/fireplace.mp3'),
+        cafe: new Audio('./assets/sounds/cafe.mp3'),
+        forest: new Audio('./assets/sounds/forest.mp3')
     },
+
+    // Local Music Loop Assets
+    music: {
+        lofigirl: new Audio('./assets/music/lofigirl.mp3'),
+        chillhop: new Audio('./assets/music/chillhop.mp3'),
+        synthwave: new Audio('./assets/music/synthwave.mp3'),
+        jazz: new Audio('./assets/music/jazz.mp3')
+    },
+    activeMusic: 'lofigirl',
+    musicMode: 'local', // 'local' or 'youtube'
+    musicPlaying: false,
 
     // Music Player Presets (Stable, long-running official YouTube video compilations)
     stations: {
@@ -575,6 +586,12 @@ function initPlayer() {
     const loadCustomBtn = document.getElementById('btn-load-custom');
     const customUrlInput = document.getElementById('input-custom-youtube');
 
+    // Preload & Loop local music
+    Object.values(state.music).forEach(audio => {
+        audio.loop = true;
+        audio.preload = 'auto';
+    });
+
     if (!window.YT) {
         const tag = document.createElement('script');
         tag.src = "https://www.youtube.com/iframe_api";
@@ -584,7 +601,7 @@ function initPlayer() {
 
     window.onYouTubeIframeAPIReady = () => {
         state.ytPlayer = new YT.Player('youtube-player', {
-            videoId: state.stations[state.activeStation],
+            videoId: state.stations['lofigirl'], // Dummy initial video
             playerVars: {
                 'playsinline': 1,
                 'controls': 0,
@@ -603,7 +620,6 @@ function initPlayer() {
     function onPlayerReady(event) {
         state.ytReady = true;
         event.target.setVolume(volumeSlider.value);
-        updateTrackInfo(state.activeStation);
     }
 
     function onPlayerStateChange(event) {
@@ -614,12 +630,51 @@ function initPlayer() {
             playerCard.classList.add('playing');
         } else {
             state.ytPlaying = false;
-            playIcon.textContent = 'play_circle';
-            playerCard.classList.remove('playing');
+            if (state.musicMode === 'youtube') {
+                playIcon.textContent = 'play_circle';
+                playerCard.classList.remove('playing');
+            }
         }
     }
 
-    function updateTrackInfo(stationKey, customTitle = null) {
+    const getActiveLocalAudio = () => state.music[state.activeMusic];
+
+    const updatePlayState = () => {
+        const playerCard = document.getElementById('widget-player');
+        
+        if (state.musicMode === 'local') {
+            // Stop YouTube if active
+            if (state.ytReady && state.ytPlaying) {
+                state.ytPlayer.pauseVideo();
+            }
+            
+            const audio = getActiveLocalAudio();
+            if (state.musicPlaying) {
+                audio.volume = parseFloat(volumeSlider.value) / 100;
+                audio.play().catch(err => console.log("Local music block: ", err));
+                playIcon.textContent = 'pause_circle';
+                playerCard.classList.add('playing');
+            } else {
+                audio.pause();
+                playIcon.textContent = 'play_circle';
+                playerCard.classList.remove('playing');
+            }
+        } else { // 'youtube'
+            // Stop Local Music if active
+            Object.values(state.music).forEach(audio => audio.pause());
+            
+            if (state.ytReady) {
+                if (state.musicPlaying) {
+                    state.ytPlayer.setVolume(volumeSlider.value);
+                    state.ytPlayer.playVideo();
+                } else {
+                    state.ytPlayer.pauseVideo();
+                }
+            }
+        }
+    };
+
+    const updateTrackInfo = (musicKey, customTitle = null) => {
         const titleEl = document.getElementById('track-title');
         const artistEl = document.getElementById('track-artist');
 
@@ -630,51 +685,52 @@ function initPlayer() {
         }
 
         const titles = {
-            lofigirl: "Lofi Hip Hop - Beats to Relax/Study to",
-            chillhop: "Chillhop Radio - Jazzy Lofi Beats",
-            synthwave: "Synthwave Radio - Retro Futuristic Chill",
-            jazz: "Jazz Lofi Cafe - Soft Ambient Melodies"
+            lofigirl: "Lofi Girl Study Session",
+            chillhop: "Chillhop Cafe Beats",
+            synthwave: "Retro Synthwave Drive",
+            jazz: "Soft Jazz Cafe Acoustics"
         };
 
         const artists = {
-            lofigirl: "Lofi Girl",
-            chillhop: "Chillhop Music",
-            synthwave: "Retro Chill Beats",
-            jazz: "Coffee Shop Acoustics"
+            lofigirl: "Local Audio Loop",
+            chillhop: "Local Audio Loop",
+            synthwave: "Local Audio Loop",
+            jazz: "Local Audio Loop"
         };
 
-        titleEl.textContent = titles[stationKey] || "선택된 스트림 없음";
-        artistEl.textContent = artists[stationKey] || "Ambient Station";
-    }
+        titleEl.textContent = titles[musicKey] || "선택된 음악 없음";
+        artistEl.textContent = artists[musicKey] || "Local Music Loop";
+    };
 
     playBtn.addEventListener('click', () => {
-        if (!state.ytReady) return;
-        if (state.ytPlaying) {
-            state.ytPlayer.pauseVideo();
-        } else {
-            state.ytPlayer.playVideo();
-        }
+        state.musicPlaying = !state.musicPlaying;
+        updatePlayState();
     });
 
     volumeSlider.addEventListener('input', () => {
-        if (!state.ytReady) return;
-        state.ytPlayer.setVolume(volumeSlider.value);
+        if (state.musicMode === 'local') {
+            getActiveLocalAudio().volume = parseFloat(volumeSlider.value) / 100;
+        } else if (state.ytReady) {
+            state.ytPlayer.setVolume(volumeSlider.value);
+        }
     });
 
     stationBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            const stationKey = btn.dataset.station;
+            const musicKey = btn.dataset.station;
             
+            // Stop previous local music
+            const prevAudio = getActiveLocalAudio();
+            prevAudio.pause();
+            prevAudio.currentTime = 0;
+
             stationBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
-            state.activeStation = stationKey;
-            updateTrackInfo(stationKey);
-
-            if (state.ytReady) {
-                state.ytPlayer.loadVideoById(state.stations[stationKey]);
-                state.ytPlayer.playVideo();
-            }
+            state.musicMode = 'local';
+            state.activeMusic = musicKey;
+            updateTrackInfo(musicKey);
+            updatePlayState();
         });
     });
 
@@ -684,8 +740,16 @@ function initPlayer() {
 
         const videoId = extractVideoId(url);
         if (videoId) {
+            // Stop local music
+            const prevAudio = getActiveLocalAudio();
+            prevAudio.pause();
+            prevAudio.currentTime = 0;
+
             stationBtns.forEach(b => b.classList.remove('active'));
             updateTrackInfo(null, "지정된 스트림");
+            
+            state.musicMode = 'youtube';
+            state.musicPlaying = true;
             
             if (state.ytReady) {
                 state.ytPlayer.loadVideoById(videoId);
@@ -701,6 +765,9 @@ function initPlayer() {
     customUrlInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') loadCustomTrack();
     });
+
+    // Initial load local Lofi Girl
+    updateTrackInfo(state.activeMusic);
 }
 
 function extractVideoId(url) {
