@@ -1,11 +1,4 @@
 // --- App State & Audio Management ---
-function createSimpleAudio(src) {
-    const audio = new Audio(src);
-    audio.addEventListener('error', (e) => {
-        console.error(`Failed to load audio: ${src}`, e);
-    });
-    return audio;
-}
 
 const state = {
     // Timer
@@ -550,10 +543,10 @@ function initMixer() {
         const updateVolume = () => {
             const vol = parseFloat(slider.value) / 100;
             
-            // Get or create audio object JIT
+            // Get or create audio object JIT (Exactly like working music logic)
             if (!state.sounds[soundKey]) {
                 const src = `./assets/sounds/${soundKey}.mp3`;
-                console.log(`Creating new audio object for: ${soundKey} at ${src}`);
+                console.log(`Loading sound: ${soundKey} from ${src}`);
                 state.sounds[soundKey] = new Audio(src);
                 state.sounds[soundKey].loop = true;
                 state.sounds[soundKey].preload = 'metadata';
@@ -564,12 +557,10 @@ function initMixer() {
             
             if (vol > 0) {
                 if (audio.paused) {
-                    console.log(`Attempting to play: ${soundKey}`);
                     audio.play()
-                        .then(() => console.log(`Successfully playing: ${soundKey}`))
                         .catch(err => {
                             console.error(`Error playing ${soundKey}:`, err);
-                            alert(`소리 로딩 실패: ${soundKey}.mp3 파일을 찾을 수 없거나 로딩 중입니다. (콘솔 확인 필요)`);
+                            // No alert to prevent annoying popups, just log to console
                         });
                 }
                 channel.classList.add('active');
