@@ -22,21 +22,9 @@ const state = {
     sessionHistory: [],   // list of session records: { time: String, duration: Number, tree: String/null }
     plantedTrees: [],     // array of grown tree emojis
 
-    // Audio Files (Local mp3 assets)
-    sounds: {
-        rain: createSimpleAudio('./assets/sounds/rain.mp3'),
-        fireplace: createSimpleAudio('./assets/sounds/fireplace.mp3'),
-        cafe: createSimpleAudio('./assets/sounds/cafe.mp3'),
-        forest: createSimpleAudio('./assets/sounds/forest.mp3')
-    },
-
-    // Local Music Loop Assets
-    music: {
-        lofigirl: createSimpleAudio('./assets/music/lofigirl.mp3'),
-        chillhop: createSimpleAudio('./assets/music/chillhop.mp3'),
-        synthwave: createSimpleAudio('./assets/music/synthwave.mp3'),
-        jazz: createSimpleAudio('./assets/music/jazz.mp3')
-    },
+    // Audio Files (Managed dynamically for better reliability)
+    sounds: {},
+    music: {},
     activeMusic: 'lofigirl',
     musicMode: 'local', // 'local' or 'youtube'
     musicPlaying: false,
@@ -558,22 +546,30 @@ function initMixer() {
         const soundKey = channel.dataset.sound;
         const toggleBtn = channel.querySelector('.sound-toggle-btn');
         const slider = channel.querySelector('.sound-volume-slider');
-        const audio = state.sounds[soundKey];
 
         const updateVolume = () => {
             const vol = parseFloat(slider.value) / 100;
+            
+            // Get or create audio object JIT
+            if (!state.sounds[soundKey]) {
+                const src = `./assets/sounds/${soundKey}.mp3`;
+                console.log(`Creating new audio object for: ${soundKey} at ${src}`);
+                state.sounds[soundKey] = new Audio(src);
+                state.sounds[soundKey].loop = true;
+                state.sounds[soundKey].preload = 'metadata';
+            }
+            
+            const audio = state.sounds[soundKey];
             audio.volume = vol;
             
             if (vol > 0) {
                 if (audio.paused) {
-                    console.log(`Attempting to play: ${soundKey} (${audio.src})`);
+                    console.log(`Attempting to play: ${soundKey}`);
                     audio.play()
                         .then(() => console.log(`Successfully playing: ${soundKey}`))
                         .catch(err => {
                             console.error(`Error playing ${soundKey}:`, err);
-                            if (audio.readyState < 2) {
-                                console.warn(`${soundKey} is still loading... Current state: ${audio.readyState} (Need 2 or higher)`);
-                            }
+                            alert(`소리 로딩 실패: ${soundKey}.mp3 파일을 찾을 수 없거나 로딩 중입니다. (콘솔 확인 필요)`);
                         });
                 }
                 channel.classList.add('active');
@@ -659,7 +655,17 @@ function initPlayer() {
         }
     }
 
-    const getActiveLocalAudio = () => state.music[state.activeMusic];
+    const getActiveLocalAudio = () => {
+        const musicKey = state.activeMusic;
+        if (!state.music[musicKey]) {
+            const src = `./assets/music/${musicKey}.mp3`;
+            console.log(`Creating new music object for: ${musicKey} at ${src}`);
+            state.music[musicKey] = new Audio(src);
+            state.music[musicKey].loop = true;
+            state.music[musicKey].preload = 'metadata';
+        }
+        return state.music[musicKey];
+    };
 
     const updatePlayState = () => {
         const playerCard = document.getElementById('widget-player');
